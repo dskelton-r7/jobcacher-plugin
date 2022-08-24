@@ -24,6 +24,7 @@
 
 package jenkins.plugins.itemstorage.s3;
 
+import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -52,7 +53,7 @@ public class S3Profile {
 
     @DataBoundConstructor
     public S3Profile(AmazonWebServicesCredentials credentials, String endpoint, String region, String signerVersion, boolean pathStyleAccess, boolean parallelDownloads) {
-        this.helper = new ClientHelper(credentials != null ? credentials.getCredentials() : null, endpoint, region, getProxy(), signerVersion, pathStyleAccess, parallelDownloads);
+        this.helper = new ClientHelper(credentials != null ? (AWSSessionCredentials) credentials.getCredentials() : null, endpoint, region, getProxy(), signerVersion, pathStyleAccess, parallelDownloads);
     }
 
     public void upload(String bucketName,

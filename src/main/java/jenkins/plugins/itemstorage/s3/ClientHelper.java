@@ -1,9 +1,9 @@
 package jenkins.plugins.itemstorage.s3;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AWSSessionCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.auth.STSSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -23,6 +23,7 @@ public class ClientHelper implements Serializable {
 
     private final String accessKey;
     private final String secretKey;
+    private final String sessionToken;
     private final String region;
     private final ProxyConfiguration proxy;
     private final String endpoint;
@@ -30,18 +31,18 @@ public class ClientHelper implements Serializable {
     private final boolean pathStyleAccess;
     private final boolean parallelDownloads;
 
-    private transient AWSCredentials credentials;
+    private transient AWSSessionCredentials credentials;
     private transient AmazonS3 client;
 
-    public ClientHelper(AWSCredentials credentials, ProxyConfiguration proxy) {
+    public ClientHelper(AWSSessionCredentials credentials, ProxyConfiguration proxy) {
         this(credentials, null, proxy);
     }
 
-    public ClientHelper(AWSCredentials credentials, String region, ProxyConfiguration proxy) {
+    public ClientHelper(AWSSessionCredentials credentials, String region, ProxyConfiguration proxy) {
         this(credentials, null, region, proxy, null, false, true);
     }
 
-    public ClientHelper(AWSCredentials credentials, String endpoint, String region, ProxyConfiguration proxy, String signerVersion, boolean pathStyleAccess, boolean parallelDownloads) {
+    public ClientHelper(AWSSessionCredentials credentials, String endpoint, String region, ProxyConfiguration proxy, String signerVersion, boolean pathStyleAccess, boolean parallelDownloads) {
         this.region = region;
         this.proxy = proxy;
         this.endpoint = endpoint;
@@ -52,9 +53,11 @@ public class ClientHelper implements Serializable {
         if (credentials != null) {
             this.accessKey = credentials.getAWSAccessKeyId();
             this.secretKey = credentials.getAWSSecretKey();
+            this.sessionToken = credentials.getSessionToken();
         } else {
             this.accessKey = null;
             this.secretKey = null;
+            this.sessionToken = null;
         }
     }
 
@@ -64,11 +67,12 @@ public class ClientHelper implements Serializable {
 
     public synchronized AmazonS3 client() {
         if (client == null) {
+
             AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
             ClientConfiguration config = getClientConfiguration(proxy);
 
             if (getCredentials() != null) {
-                builder.setCredentials(new AWSStaticCredentialsProvider(getCredentials()));
+                builder.setCredentials(new STSSessionCredentialsProvider(getCredentials()));
             }
 
             if (endpoint != null) {
@@ -110,9 +114,9 @@ public class ClientHelper implements Serializable {
         return proxy.getNoProxyHostPatterns().stream().noneMatch(p -> p.matcher(hostname).matches());
     }
 
-    public synchronized AWSCredentials getCredentials() {
-        if (credentials == null && accessKey != null && secretKey != null) {
-            credentials = new BasicAWSCredentials(accessKey, secretKey);
+    public synchronized AWSSessionCredentials getCredentials() {
+        if (credentials == null && accessKey != null && secretKey != null && sessionToken != null) {
+            credentials = new BasicSessionCredentials(accessKey, secretKey, sessionToken);
         }
         return credentials;
     }
